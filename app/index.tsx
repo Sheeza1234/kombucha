@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from './(auth)'; // make sure this is implemented
-
 const SplashScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
@@ -25,7 +24,7 @@ const SplashScreen = () => {
 
   return (
     <LinearGradient
-      colors={['rgba(255,165,0,0.8)', 'rgba(255,255,0,0.6)']}
+      colors={['rgb(255, 87, 51)', 'rgb(255,87,51)']}
       start={[0, 0]}
       end={[1, 1]}
       style={styles.container}

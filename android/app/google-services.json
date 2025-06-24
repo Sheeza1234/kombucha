@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:733695998872:android:5c1eadb8ca1a50280089ed",
+        "mobilesdk_app_id": "1:733695998872:android:fe708229bd80cb210089ed",
         "android_client_info": {
           "package_name": "com.anonymous.kombucha"
         }
@@ -22,40 +22,11 @@
           }
         },
         {
-          "client_id": "733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDVn3OJgIRDazCz0msMZqZM4njEk6zGaJI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:733695998872:android:f153690b6c91f8e20089ed",
-        "android_client_info": {
-          "package_name": "com.sheeza123.kombuchamapapp"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "733695998872-o5nfruj1adp75ve66iffemrhvqi2m4ri.apps.googleusercontent.com",
+          "client_id": "733695998872-5fdu52tf0541ncvl4oa0rr42og2864q8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.sheeza123.kombuchamapapp",
-            "certificate_hash": "836363c37b85da3506fc68e001c250c4fc2072d1"
+            "package_name": "com.anonymous.kombucha",
+            "certificate_hash": "da4b1ef17338d2b311e0970e33a55199ecfa4d68"
           }
         },
         {

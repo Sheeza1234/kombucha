@@ -73,7 +73,7 @@ export default function AddSpotScreen() {
         photoUrl = await uploadImage(imageUri);
       }
 
-      const { error } = await supabase.from('kombu_spots').insert([
+      const { error } = await supabase.from('kombuspots').insert([
         {
           id: uuid.v4(),
           name,

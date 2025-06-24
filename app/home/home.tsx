@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Button, Image, StyleSheet,
+  Button,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -62,11 +63,12 @@ export default function ContentView() {
       if (geoResp.length > 0) {
         const location = geoResp[0];
         setRegion({
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.03,
-          longitudeDelta: 0.03,
-        });
+  latitude: 48.8566, // Paris
+  longitude: 2.3522,
+  latitudeDelta: 6,  // big zoom out so you see all spots
+  longitudeDelta: 6,
+});
+
       }
     } catch (error) {
       setErrorMessage(`Search failed: ${error.message}`);
@@ -83,7 +85,7 @@ export default function ContentView() {
       {region && (
         <MapView style={styles.map} region={region} showsUserLocation>
           {spots.map((spot) => (
-           <Marker
+          <Marker
   key={spot.id}
   coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
   onPress={() =>
@@ -92,13 +94,9 @@ export default function ContentView() {
       params: { spot: JSON.stringify(spot) }
     })
   }
->
-  <Image
-    source={require('../../assets/1024.png')}
-    style={{ width: 40, height: 40, borderRadius: 20 }}
-    resizeMode="contain"
-  />
-</Marker>
+  image={require('../../assets/1024.png')} // ✅ Put it here
+/>
+
 
           ))}
         </MapView>

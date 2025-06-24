@@ -9,15 +9,21 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "yes"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.anonymous.kombucha",
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.kombucha"
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBb37aZ7mLZqvKhtIkNhhYu5KOnUwl6YWo"
+        }
+      }
     },
     "web": {
       "bundler": "metro",

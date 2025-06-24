@@ -3,7 +3,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -37,8 +37,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Init Google Sign-In
     GoogleSignin.configure({
-      webClientId: '733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com',
-    });
+  webClientId: '733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com',
+  offlineAccess: true,
+  forceCodeForRefreshToken: true,
+});
+
 
     const checkSession = async () => {
       const {
@@ -99,38 +102,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      await GoogleSignin.signOut(); // Ensure clean state
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+ const signInWithGoogle = async () => {
+  try {
+    console.log('🧹 Signing out any previous sessions...');
+await GoogleSignin.signOut();
 
-      const userInfo = await GoogleSignin.signIn();
-      const { idToken } = userInfo;
+console.log('🔍 Checking Google Play Services...');
+const isAvailable = await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+console.log('✅ Google Play Services available:', isAvailable);
 
-      if (!idToken) throw new Error('No Google ID token');
+console.log('📲 Initiating Google sign-in...');
+const userInfo = await GoogleSignin.signIn();
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: idToken,
-      });
+    const { idToken } = userInfo;
+    if (!idToken) throw new Error('No Google ID token');
 
-      if (error) throw error;
+    console.log('📡 Sending token to Supabase...');
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+    });
 
-      const sessionUser = data.user!;
-      const newUser: User = {
-        id: sessionUser.id,
-        email: sessionUser.email,
-        fullName: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name,
-      };
+    if (error) throw error;
 
-      await saveUserToSupabase(newUser);
-      await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      console.log('✅ Google sign-in successful');
-    } catch (err) {
-      console.error('🔴 Google Sign-In Error:', err);
-    }
-  };
+    const sessionUser = data.user!;
+    const newUser: User = {
+      id: sessionUser.id,
+      email: sessionUser.email,
+      fullName: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name,
+    };
+
+    console.log('💾 Saving user to Supabase...');
+    await saveUserToSupabase(newUser);
+    await AsyncStorage.setItem('user', JSON.stringify(newUser));
+    setUser(newUser);
+    console.log('✅ Google sign-in completed!');
+  } catch (err) {
+    console.error('🔴 Google Sign-In Error:', err);
+  }
+};
+
 
   const saveUserToSupabase = async ({ id, email, fullName }: User) => {
     try {

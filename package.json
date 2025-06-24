@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -13,6 +13,8 @@
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-firebase/app": "^22.2.1",
+    "@react-native-firebase/messaging": "^22.2.1",
     "@react-native-google-signin/google-signin": "^15.0.0",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
@@ -36,6 +38,7 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.9",
     "expo-web-browser": "~14.2.0",
+    "firebase": "^11.9.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.4",
@@ -52,8 +55,10 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "@types/react-native": "^0.72.8",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "react-native-dotenv": "^3.4.11",
     "typescript": "~5.8.3"
   },
   "private": true
