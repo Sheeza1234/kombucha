@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   directionsButton: {
-    backgroundColor: 'rgb(255, 87, 51)',
+    backgroundColor: 'rgb(255,191,0)',
     padding: 16,
     margin: 16,
     borderRadius: 12,

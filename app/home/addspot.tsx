@@ -222,10 +222,10 @@ const saveSpot = async () => {
           fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
 
         }
-      }} color="rgb(255, 87, 51)" />
+      }} color="rgb(255,191,0)', 'rgb(255,191,0)" />
 
       <View style={{ marginTop: 20 }}>
-        {isSaving ? <ActivityIndicator size="large" color="rgb(255, 87, 51)" /> : <Button title="Save Spot" onPress={saveSpot} color="rgb(255, 87, 51)" />}
+        {isSaving ? <ActivityIndicator size="large" color="rgb(255,191,0)', 'rgb(255,191,0)" /> : <Button title="Save Spot" onPress={saveSpot} color="rgb(255,191,0)', 'rgb(255,191,0)" />}
       </View>
     </ScrollView>
   );
