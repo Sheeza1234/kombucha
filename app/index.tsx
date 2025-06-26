@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from './(auth)'; // make sure this is implemented
@@ -13,11 +14,16 @@ const SplashScreen = () => {
       setIsLoading(false);
 
       
-        navigation.reset({ index: 0, routes: [{ name: 'home/home' }] }); // or 'Tabs' if using bottom tabs
+        // navigation.reset({ index: 0, routes: [{ name: 'home/home' }] }); // or 'Tabs' if using bottom tabs
     }, 2000);
 
     return () => clearTimeout(timer);
   }, [user]);
+
+
+  if(!isLoading){
+    return <Redirect href={'/home/home'} />;
+  }
 
   return (
     <LinearGradient
@@ -61,3 +67,21 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
 });
+
+
+
+// import { useAuth } from '@/api/firebase/auth/useAuth';
+// import { Redirect } from 'expo-router';
+// import React from 'react';
+
+// const index = () => {
+//   const { profile, isLoading } = useAuth();
+//   if (!isLoading) {
+//     if (profile) {
+//       return <Redirect href='/(tab)/home' />;
+//     } else {
+//       return <Redirect href='/(auth)/onboarding' />;
+//     }
+//   }
+// };
+// export default index;

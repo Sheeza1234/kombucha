@@ -5,11 +5,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../supabase';
