@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { supabase } from '../supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -17,13 +18,11 @@ interface User {
 interface AuthContextProps {
   user: User | null;
   isLoading: boolean;
-  signInWithApple: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithApple?: () => Promise<void>;  // optional on Android
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
-
 export const useAuth = (): AuthContextProps => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
@@ -35,33 +34,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Init Google Sign-In
+    // Google config (you can remove it entirely if not used at all)
     GoogleSignin.configure({
-  webClientId: '733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com',
-  offlineAccess: true,
-  forceCodeForRefreshToken: true,
-});
-
+      webClientId: '733695998872-rje0f6h1s9ifiivisac4j1ofvbt4dl8u.apps.googleusercontent.com',
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+    });
 
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        const storedUser = await AsyncStorage.getItem('user');
-        if (storedUser) setUser(JSON.parse(storedUser));
-      }
+  if (session?.user) {
+    const storedUser = await AsyncStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      const fullName = session.user.user_metadata?.full_name;
+      const email = session.user.email;
 
-      setLoading(false);
-    };
+      const newUser: User = { id: session.user.id, email, fullName };
+      await AsyncStorage.setItem('user', JSON.stringify(newUser));
+      setUser(newUser);
+    }
+  }
+
+  setLoading(false);
+};
+
 
     checkSession();
   }, []);
 
   const signInWithApple = async () => {
+    if (Platform.OS !== 'ios') return;
+
     try {
-      const nonce = Math.random().toString(36).substring(2, 12);
+      const nonce = Math.random().toString(36).substring(2);
       const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
 
       const appleCredential = await AppleAuthentication.signInAsync({
@@ -84,9 +94,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
 
       const sessionUser = data.user!;
-      const fullName = appleCredential.fullName
-        ? `${appleCredential.fullName.givenName ?? ''} ${appleCredential.fullName.familyName ?? ''}`.trim()
-        : sessionUser.user_metadata?.full_name;
+      const fullName =
+        appleCredential.fullName
+          ? `${appleCredential.fullName.givenName ?? ''} ${appleCredential.fullName.familyName ?? ''}`.trim()
+          : sessionUser.user_metadata?.full_name;
 
       const newUser: User = {
         id: sessionUser.id,
@@ -98,59 +109,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem('user', JSON.stringify(newUser));
       setUser(newUser);
     } catch (err) {
-      console.error('🍎 Apple Sign-Up Error:', err);
+      console.error('🍎 Apple Sign-In Error:', err);
     }
   };
-
- const signInWithGoogle = async () => {
-  try {
-    console.log('🧹 Signing out any previous sessions...');
-await GoogleSignin.signOut();
-
-console.log('🔍 Checking Google Play Services...');
-const isAvailable = await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-console.log('✅ Google Play Services available:', isAvailable);
-
-console.log('📲 Initiating Google sign-in...');
-const userInfo = await GoogleSignin.signIn();
-
-    const { idToken } = userInfo;
-    if (!idToken) throw new Error('No Google ID token');
-
-    console.log('📡 Sending token to Supabase...');
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: idToken,
-    });
-
-    if (error) throw error;
-
-    const sessionUser = data.user!;
-    const newUser: User = {
-      id: sessionUser.id,
-      email: sessionUser.email,
-      fullName: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name,
-    };
-
-    console.log('💾 Saving user to Supabase...');
-    await saveUserToSupabase(newUser);
-    await AsyncStorage.setItem('user', JSON.stringify(newUser));
-    setUser(newUser);
-    console.log('✅ Google sign-in completed!');
-  } catch (err) {
-    console.error('🔴 Google Sign-In Error:', err);
-  }
-};
-
 
   const saveUserToSupabase = async ({ id, email, fullName }: User) => {
     try {
       const { error } = await supabase.from('users').upsert([
-        {
-          id,
-          email,
-          full_name: fullName,
-        },
+        { id, email, full_name: fullName },
       ]);
       if (error) console.error('Supabase upsert error:', error);
     } catch (err) {
@@ -165,7 +131,14 @@ const userInfo = await GoogleSignin.signIn();
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signInWithApple, signInWithGoogle, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        signInWithApple: Platform.OS === 'ios' ? signInWithApple : undefined,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

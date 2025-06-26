@@ -12,11 +12,8 @@ const SplashScreen = () => {
     const timer = setTimeout(() => {
       setIsLoading(false);
 
-      if (user) {
+      
         navigation.reset({ index: 0, routes: [{ name: 'home/home' }] }); // or 'Tabs' if using bottom tabs
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: '(auth)/sigin' }] });
-      }
     }, 2000);
 
     return () => clearTimeout(timer);

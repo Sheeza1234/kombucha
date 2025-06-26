@@ -1,44 +1,40 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   StyleSheet,
-  Text, TouchableOpacity, View
+  Text,
+  View
 } from 'react-native';
 import { useAuth } from '.'; // custom hook/context
 
+
+
+
 const SignInScreen = () => {
-  const { signInWithApple,signInWithGoogle, isLoading, errorMessage, isSignedIn } = useAuth();
-  const [showError, setShowError] = useState(false);
-  const navigation=useNavigation();
+  const { signInWithApple, isLoading, isSignedIn } = useAuth();
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const navigation = useNavigation();
+const router = useRouter();
+const { redirectTo } = useLocalSearchParams(); // optional for redirecting to add-spot
 
 useEffect(() => {
-  const checkAppleAvailability = async () => {
-    const available = await AppleAuthentication.isAvailableAsync();
-    setAppleAvailable(available);
-  };
-  checkAppleAvailability();
-}, []);
-
-
+  if (isSignedIn) {
+    router.replace('/home/home');
+  }
+}, [isSignedIn]);
   useEffect(() => {
-    if (errorMessage) {
-      Alert.alert('Sign In Error', errorMessage, [{ text: 'OK', onPress: () => setShowError(false) }]);
-    }
-  }, [errorMessage]);
+    const checkAppleAvailability = async () => {
+      const available = await AppleAuthentication.isAvailableAsync();
+      setAppleAvailable(available);
+    };
+    checkAppleAvailability();
+  }, []);
 
-  useEffect(() => {
-    if (isSignedIn) {
-      // Navigate to Home
-      navigation.reset({ index: 0, routes: [{ name: 'home' }] });
-    }
-  }, [isSignedIn]);
-
+ 
   return (
     <LinearGradient
       colors={['rgb(255, 87, 51)', 'rgb(255,87,51)']}
@@ -56,21 +52,10 @@ useEffect(() => {
         <View style={styles.signInSection}>
           <Text style={styles.welcome}>Welcome!</Text>
           <Text style={styles.prompt}>Sign in to save your favorite spots and add new discoveries</Text>
-<TouchableOpacity
-  onPress={signInWithGoogle}
-  style={{
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 20,
-    width: 250,
-    alignItems: 'center',
-  }}
->
-  <Text style={{ fontWeight: '600', color: '#333' }}>Continue with Google</Text>
-</TouchableOpacity>
 
-          {appleAvailable && (
+
+          {/* ✅ Show Apple Sign-In only if available and on iOS */}
+          {Platform.OS === 'ios' && appleAvailable && signInWithApple && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
@@ -78,6 +63,11 @@ useEffect(() => {
               style={styles.appleButton}
               onPress={signInWithApple}
             />
+          )}
+
+          {/* Optional: Fallback for iOS if Apple unavailable */}
+          {Platform.OS === 'ios' && !appleAvailable && (
+            <Text style={{ color: 'white', marginTop: 20 }}>Apple Sign-In not available on this device.</Text>
           )}
 
           {isLoading && <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />}
@@ -103,6 +93,18 @@ const styles = StyleSheet.create({
   welcome: { fontSize: 20, fontWeight: '600', color: 'white' },
   prompt: { fontSize: 14, color: 'white', textAlign: 'center', paddingHorizontal: 20, marginVertical: 10 },
   appleButton: { width: 250, height: 44, alignSelf: 'center' },
+  googleButton: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    width: 250,
+    alignItems: 'center',
+  },
+  googleText: {
+    fontWeight: '600',
+    color: '#333',
+  },
   footer: { alignItems: 'center', marginBottom: 20 },
   footerText: { fontSize: 12, color: 'white' },
   footerSubText: { fontSize: 10, color: 'white', textAlign: 'center', marginTop: 4 },

@@ -1,11 +1,15 @@
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import uuid from 'react-native-uuid';
+import { useAuth } from '../(auth)';
 import { supabase } from '../supabase';
+
 
 export default function AddSpotScreen() {
   const navigation = useNavigation();
@@ -20,15 +24,17 @@ export default function AddSpotScreen() {
     longitudeDelta: 0.05,
   });
   const [isSaving, setIsSaving] = useState(false);
+const [address, setAddress] = useState(''); // <-- stores real address
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required.');
-        return;
-      }
+useEffect(() => {
+  (async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Location permission is required.');
+      return;
+    }
 
+    try {
       const currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation);
       setRegion({
@@ -36,8 +42,30 @@ export default function AddSpotScreen() {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
       });
-    })();
-  }, []);
+
+      const { latitude, longitude } = currentLocation.coords;
+
+      // 🌍 Geo-fencing countries
+      const res = await axios.get(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=AIzaSyBb37aZ7mLZqvKhtIkNhhYu5KOnUwl6YWo`
+      );
+
+      const country = res.data.results[0]?.address_components.find(c => c.types.includes("country"))?.long_name;
+const fullAddress = res.data.results[0]?.formatted_address;
+setAddress(fullAddress || ''); // fallback to empty if not found
+
+      const allowedCountries = ['France', 'Germany', 'Canada'];
+
+      if (!allowedCountries.includes(country)) {
+        Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
+      }
+    } catch (e) {
+      console.warn('Geocoding failed:', e);
+      Alert.alert('Error', 'Unable to determine your country. Please check your internet or location settings.');
+    }
+  })();
+}, []);
+
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images });
@@ -45,6 +73,30 @@ export default function AddSpotScreen() {
       setImageUri(result.assets[0].uri);
     }
   };
+const isValidName = (input: string) => {
+  const bannedWords = ['poop', 'test', '123', 'yo'];
+  const pattern = /^[A-Za-zÀ-ÿ\s'-]{3,}$/;
+  return (
+    pattern.test(input) &&
+    !bannedWords.some(bad => input.toLowerCase().includes(bad))
+  );
+};
+const fetchAddressFromCoords = async (latitude: number, longitude: number) => {
+  try {
+    const res = await axios.get(
+      `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=f2b6935d699b4c6b87fb7c6f3669e235`
+    );
+
+    const fullAddress = res.data.results[0]?.formatted;
+    setAddress(fullAddress || 'Unknown Address');
+  } catch (error) {
+    console.warn('Reverse geocoding failed:', error);
+    setAddress('Unknown Address');
+  }
+};
+
+
+const { user } = useAuth();
 
   const uploadImage = async (uri: string) => {
     const response = await fetch(uri);
@@ -58,44 +110,64 @@ export default function AddSpotScreen() {
     if (error) throw error;
     return supabase.storage.from('spots').getPublicUrl(data.path).data.publicUrl;
   };
+const saveSpot = async () => {
+  if (!name || !location) {
+    Alert.alert('Missing Data', 'Please fill in all required fields.');
+    return;
+  }
 
-  const saveSpot = async () => {
-    if (!name || !location) {
-      Alert.alert('Missing Data', 'Please fill in all required fields.');
-      return;
+  if (!isValidName(name)) {
+    Alert.alert('Invalid Name', 'Please enter a proper store name without emojis or banned words.');
+    return;
+  }
+
+  if (Platform.OS === 'ios' && !user) {
+    const router = useRouter();
+    router.push({ pathname: '/(auth)/signin', params: { redirectTo: '/home/add-spot' } });
+    return;
+  }
+
+  setIsSaving(true);
+
+  try {
+    // 📍 Fetch address from OpenCage API
+    const res = await axios.get(
+      `https://api.opencagedata.com/geocode/v1/json?q=${region.latitude}+${region.longitude}&key=f2b6935d699b4c6b87fb7c6f3669e235`
+    );
+
+    const fullAddress = res.data.results[0]?.formatted || 'Unknown Address';
+
+    let photoUrl = 'placeholder';
+    if (imageUri) {
+      photoUrl = await uploadImage(imageUri);
     }
 
-    setIsSaving(true);
+    const { error } = await supabase.from('kombuspots').insert([
+      {
+        id: uuid.v4(),
+        name,
+        address: fullAddress,
+        latitude: region.latitude,
+        longitude: region.longitude,
+        comment: comment || null,
+        photo_url: photoUrl,
+        seen_count: 0,
+        like_count: 0,
+      },
+    ]);
 
-    try {
-      let photoUrl = 'placeholder';
-      if (imageUri) {
-        photoUrl = await uploadImage(imageUri);
-      }
+    if (error) throw error;
 
-      const { error } = await supabase.from('kombuspots').insert([
-        {
-          id: uuid.v4(),
-          name,
-          address: 'Selected Location',
-          latitude: region.latitude,
-          longitude: region.longitude,
-          comment: comment || null,
-          photo_url: photoUrl,
-          seen_count: 0,
-          like_count: 0,
-        },
-      ]);
+    Alert.alert('Success', 'Spot added successfully!');
+    navigation.goBack();
+  } catch (err: any) {
+    Alert.alert('Error', err.message);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
-      if (error) throw error;
-      Alert.alert('Success', 'Spot added successfully!');
-      navigation.goBack();
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -114,14 +186,24 @@ export default function AddSpotScreen() {
 
       <MapView
         region={region}
-        onPress={(e) => setRegion({
-          ...region,
-          latitude: e.nativeEvent.coordinate.latitude,
-          longitude: e.nativeEvent.coordinate.longitude
-        })}
+       onPress={(e) => {
+  const { latitude, longitude } = e.nativeEvent.coordinate;
+  setRegion((prev) => ({ ...prev, latitude, longitude }));
+  fetchAddressFromCoords(latitude, longitude); // 🔄 update address
+}}
         style={{ height: 200, borderRadius: 10, marginBottom: 16 }}
       >
-        <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
+        <Marker
+  coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+  draggable
+ onDragEnd={(e) => {
+  const { latitude, longitude } = e.nativeEvent.coordinate;
+  setRegion((prev) => ({ ...prev, latitude, longitude }));
+  fetchAddressFromCoords(latitude, longitude); // 🔄 update address
+}}
+  image={require('../../assets/1024.png')}
+/>
+
       </MapView>
 
       <Button title="Use My Location" onPress={() => {
@@ -131,11 +213,13 @@ export default function AddSpotScreen() {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude
           });
+          fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
+
         }
-      }} color="#FFA500" />
+      }} color="rgb(255, 87, 51)" />
 
       <View style={{ marginTop: 20 }}>
-        {isSaving ? <ActivityIndicator size="large" color="#FFA500" /> : <Button title="Save Spot" onPress={saveSpot} color="#FFA500" />}
+        {isSaving ? <ActivityIndicator size="large" color="rgb(255, 87, 51)" /> : <Button title="Save Spot" onPress={saveSpot} color="rgb(255, 87, 51)" />}
       </View>
     </ScrollView>
   );
