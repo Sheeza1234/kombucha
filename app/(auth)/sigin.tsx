@@ -9,7 +9,7 @@ import {
   Text,
   View
 } from 'react-native';
-import { useAuth } from '.'; // custom hook/context
+import { useAuth } from '../context/Authcontext'; // custom hook/context
 
 
 

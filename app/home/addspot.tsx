@@ -7,8 +7,9 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import uuid from 'react-native-uuid';
-import { useAuth } from '../(auth)';
-import { supabase } from '../supabase';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../context/Authcontext';
+
 
 
 export default function AddSpotScreen() {
@@ -17,6 +18,7 @@ export default function AddSpotScreen() {
   const [comment, setComment] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const router = useRouter();
   const [region, setRegion] = useState({
     latitude: 46.603354,
     longitude: 1.888334,
@@ -49,16 +51,19 @@ useEffect(() => {
       const res = await axios.get(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=AIzaSyBb37aZ7mLZqvKhtIkNhhYu5KOnUwl6YWo`
       );
+const components: Array<{ types: string[]; long_name: string }> = res.data.results[0]?.address_components || [];
 
-      const country = res.data.results[0]?.address_components.find(c => c.types.includes("country"))?.long_name;
+const country = components.find((c) => c.types.includes("country"))?.long_name;
+
 const fullAddress = res.data.results[0]?.formatted_address;
 setAddress(fullAddress || ''); // fallback to empty if not found
 
       const allowedCountries = ['France', 'Germany', 'Canada'];
 
-      if (!allowedCountries.includes(country)) {
-        Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
-      }
+if (!country || !allowedCountries.includes(country)) {
+  Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
+}
+
     } catch (e) {
       console.warn('Geocoding failed:', e);
       Alert.alert('Error', 'Unable to determine your country. Please check your internet or location settings.');
@@ -122,8 +127,9 @@ const saveSpot = async () => {
   }
 
   if (Platform.OS === 'ios' && !user) {
-    const router = useRouter();
-    router.push({ pathname: '/(auth)/signin', params: { redirectTo: '/home/add-spot' } });
+    router.replace('/(auth)/signin?redirectTo=/home/add-spot' as never);
+ // ✅ works with expo-router
+
     return;
   }
 

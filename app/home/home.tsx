@@ -13,14 +13,20 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { supabase } from '../supabase';
+import { supabase } from '../../lib/supabase';
 
 
 export default function ContentView() {
-  const [region, setRegion] = useState(null);
-  const [spots, setSpots] = useState([]);
+  const [region, setRegion] = useState({
+  latitude: 0,
+  longitude: 0,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+});
+
+  const [spots, setSpots] = useState<Spot[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigation = useNavigation();
   const router=useRouter();
 
@@ -53,7 +59,7 @@ export default function ContentView() {
       if (error) throw error;
       setSpots(data);
     } catch (error) {
-      setErrorMessage(`Failed to load spots: ${error.message}`);
+      setErrorMessage(`Failed to load spots: ${error}`);
     }
   };
 
@@ -72,9 +78,17 @@ export default function ContentView() {
 
       }
     } catch (error) {
-      setErrorMessage(`Search failed: ${error.message}`);
-    }
+  // setErrorMessage(`Search failed: ${(error as Error).message}`);
+}
+
+
   };
+interface Spot {
+  id: string | number;
+  latitude: number;
+  longitude: number;
+  [key: string]: any; // optional: allows other unknown fields without error
+}
 
   useEffect(() => {
     getLocationAsync();
@@ -85,21 +99,20 @@ export default function ContentView() {
     <View style={styles.container}>
       {region && (
         <MapView style={styles.map} region={region} showsUserLocation>
-          {spots.map((spot) => (
-          <Marker
-  key={spot.id}
-  coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-  onPress={() =>
-    router.push({
-      pathname: '/home/spotdetail',
-      params: { spot: JSON.stringify(spot) }
-    })
-  }
-  image={require('../../assets/1024.png')} // ✅ Put it here
-/>
+{spots.map((spot, index) => (
+  <Marker
+    key={spot?.id ?? index}
+    coordinate={{ latitude: spot?.latitude ?? 0, longitude: spot?.longitude ?? 0 }}
+    onPress={() =>
+      router.push({
+        pathname: '/home/spotdetail',
+        params: { spot: JSON.stringify(spot) }
+      })
+    }
+    image={require('../../assets/1024.png')}
+  />
+))}
 
-
-          ))}
         </MapView>
       )}
 

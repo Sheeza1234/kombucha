@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useAuth } from './(auth)'; // make sure this is implemented
+import { useAuth } from './context/Authcontext'; // make sure this is implemented
 const SplashScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
