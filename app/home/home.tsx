@@ -62,6 +62,45 @@ export default function ContentView() {
       setErrorMessage(`Failed to load spots: ${error}`);
     }
   };
+function clusterSpots(spots: Spot[], zoomLevel: number): Spot[] {
+  if (zoomLevel <= 0.5) return spots; // don't cluster
+
+  const grouped: Spot[] = [];
+  const seen: { [key: string]: Spot } = {};
+
+  const RADIUS_KM = 5;
+
+  function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371; // Earth radius in km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  for (let spot of spots) {
+    let clustered = false;
+    for (let key in seen) {
+      const other = seen[key];
+      if (
+        haversine(spot.latitude, spot.longitude, other.latitude, other.longitude) <= RADIUS_KM
+      ) {
+        clustered = true;
+        break;
+      }
+    }
+    if (!clustered) {
+      const key = `${spot.latitude.toFixed(2)}-${spot.longitude.toFixed(2)}`;
+      seen[key] = spot;
+      grouped.push(spot);
+    }
+  }
+
+  return grouped;
+}
 
   const searchLocation = async () => {
     if (!searchText) return;
@@ -98,20 +137,29 @@ interface Spot {
   return (
     <View style={styles.container}>
       {region && (
-        <MapView style={styles.map} region={region} showsUserLocation>
-{spots.map((spot, index) => (
+        <MapView
+  style={styles.map}
+  region={region}
+  showsUserLocation
+  onRegionChangeComplete={(newRegion) => {
+    setRegion(newRegion); // update region so we know zoom level
+  }}
+>
+{clusterSpots(spots, region.latitudeDelta).map((spot, index) => (
   <Marker
-    key={spot?.id ?? index}
-    coordinate={{ latitude: spot?.latitude ?? 0, longitude: spot?.longitude ?? 0 }}
+    key={spot.id ?? index}
+    coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
     onPress={() =>
       router.push({
         pathname: '/home/spotdetail',
-        params: { spot: JSON.stringify(spot) }
+        params: { spot: JSON.stringify(spot) },
       })
     }
-    image={require('../../assets/1024.png')}
+    image={require('../../assets/image.png')}
   />
 ))}
+
+
 
         </MapView>
       )}

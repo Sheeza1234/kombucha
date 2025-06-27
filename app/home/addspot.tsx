@@ -207,7 +207,7 @@ const saveSpot = async () => {
   setRegion((prev) => ({ ...prev, latitude, longitude }));
   fetchAddressFromCoords(latitude, longitude); // 🔄 update address
 }}
-  image={require('../../assets/1024.png')}
+  image={require('../../assets/image.png')}
 />
 
       </MapView>
