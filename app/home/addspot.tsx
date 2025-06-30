@@ -1,10 +1,11 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import uuid from 'react-native-uuid';
 import { supabase } from '../../lib/supabase';
@@ -58,11 +59,6 @@ const country = components.find((c) => c.types.includes("country"))?.long_name;
 const fullAddress = res.data.results[0]?.formatted_address;
 setAddress(fullAddress || ''); // fallback to empty if not found
 
-      const allowedCountries = ['France', 'Germany', 'Canada'];
-
-if (!country || !allowedCountries.includes(country)) {
-  Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
-}
 
     } catch (e) {
       console.warn('Geocoding failed:', e);
@@ -128,20 +124,28 @@ const saveSpot = async () => {
 
   if (Platform.OS === 'ios' && !user) {
     router.replace('/(auth)/signin?redirectTo=/home/add-spot' as never);
- // ✅ works with expo-router
-
     return;
   }
 
   setIsSaving(true);
 
   try {
-    // 📍 Fetch address from OpenCage API
+    // 📍 Reverse geocode to get country and full address
     const res = await axios.get(
-      `https://api.opencagedata.com/geocode/v1/json?q=${region.latitude}+${region.longitude}&key=f2b6935d699b4c6b87fb7c6f3669e235`
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${region.latitude},${region.longitude}&key=AIzaSyBb37aZ7mLZqvKhtIkNhhYu5KOnUwl6YWo`
     );
 
-    const fullAddress = res.data.results[0]?.formatted || 'Unknown Address';
+    const components: Array<{ types: string[]; long_name: string }> = res.data.results[0]?.address_components || [];
+    const country = components.find((c) => c.types.includes("country"))?.long_name;
+    const fullAddress = res.data.results[0]?.formatted_address || 'Unknown Address';
+
+    // ✅ Restrict based on country only when saving
+    const allowedCountries = ['France', 'Germany', 'Canada'];
+    if (!country || !allowedCountries.includes(country)) {
+      Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
+      setIsSaving(false);
+      return;
+    }
 
     let photoUrl = 'placeholder';
     if (imageUri) {
@@ -175,58 +179,179 @@ const saveSpot = async () => {
 
 
 
+
   return (
-    <ScrollView contentContainerStyle={{ padding: 16 }}>
-      <TouchableOpacity onPress={pickImage} style={{ marginBottom: 16 }}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={{ height: 200, borderRadius: 10 }} />
-        ) : (
-          <View style={{ height: 200, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', borderRadius: 10 }}>
-            <Text>Add Photo</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+<ScrollView contentContainerStyle={styles.container}>
+  <View style={styles.top}>
+     <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
+      <Text style={styles.donebutton}>Cancel</Text>
+    </TouchableOpacity>
+    <Text style={styles.placeholderText}>Add New Spot</Text>
+    <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
+      <Text style={styles.donebutton}>Save</Text>
+    </TouchableOpacity>
+  </View>
+  <TouchableOpacity onPress={pickImage} style={styles.addPhotoBox}>
+    {imageUri ? (
+      <Image source={{ uri: imageUri }} style={{ height: 200, width: '100%', borderRadius: 12 }} />
+    ) : (
+      <>
+       <MaterialIcons name="add-photo-alternate" color='#fe9f0a' size={44} />
+        <Text style={styles.addPhotoText}>Add Photo</Text>
+      </>
+    )}
+  </TouchableOpacity>
 
-      <TextInput placeholder="Store Name" value={name} onChangeText={setName} style={{ borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 10 }} />
-      <TextInput placeholder="Comment (optional)" value={comment} onChangeText={setComment} style={{ borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 10 }} />
+  <Text style={styles.helperText}>📸 Tap to add a photo of the kombucha spot</Text>
 
-      <MapView
-        region={region}
-       onPress={(e) => {
-  const { latitude, longitude } = e.nativeEvent.coordinate;
-  setRegion((prev) => ({ ...prev, latitude, longitude }));
-  fetchAddressFromCoords(latitude, longitude); // 🔄 update address
-}}
-        style={{ height: 200, borderRadius: 10, marginBottom: 16 }}
-      >
-        <Marker
-  coordinate={{ latitude: region.latitude, longitude: region.longitude }}
-  draggable
- onDragEnd={(e) => {
-  const { latitude, longitude } = e.nativeEvent.coordinate;
-  setRegion((prev) => ({ ...prev, latitude, longitude }));
-  fetchAddressFromCoords(latitude, longitude); // 🔄 update address
-}}
-  image={require('../../assets/image.png')}
-/>
+  <TextInput placeholder="Store Name" value={name} onChangeText={setName} style={styles.input} />
+  <TextInput placeholder="Comment (Optional)" value={comment} onChangeText={setComment} style={styles.input1} />
 
-      </MapView>
+  <View style={styles.sectionTitleRow}>
+    <Text style={styles.sectionTitle}>Location</Text>
+    <TouchableOpacity onPress={() => {
+      if (location) {
+        setRegion({
+          ...region,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+        fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
+      }
+    }}>
+      <Text style={styles.sectionLink}>Use Current Location</Text>
+    </TouchableOpacity>
+  </View>
+  <Text style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>
+    Tap on the map to select a location
+  </Text>
 
-      <Button title="Use My Location" onPress={() => {
-        if (location) {
-          setRegion({
-            ...region,
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-          });
-          fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
+<View style={styles.mapWrapper}>
+  <MapView
+    region={region}
+    onPress={(e) => {
+      const { latitude, longitude } = e.nativeEvent.coordinate;
+      setRegion((prev) => ({ ...prev, latitude, longitude }));
+      fetchAddressFromCoords(latitude, longitude);
+    }}
+    style={styles.map}
+  >
+    <Marker
+      coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+      draggable
+      onDragEnd={(e) => {
+        const { latitude, longitude } = e.nativeEvent.coordinate;
+        setRegion((prev) => ({ ...prev, latitude, longitude }));
+        fetchAddressFromCoords(latitude, longitude);
+      }}
+      image={require('../../assets/image.png')}
+    />
+  </MapView>
+</View>
 
-        }
-      }} color="rgb(255,191,0)', 'rgb(255,191,0)" />
+</ScrollView>
 
-      <View style={{ marginTop: 20 }}>
-        {isSaving ? <ActivityIndicator size="large" color="rgb(255,191,0)', 'rgb(255,191,0)" /> : <Button title="Save Spot" onPress={saveSpot} color="rgb(255,191,0)', 'rgb(255,191,0)" />}
-      </View>
-    </ScrollView>
   );
 }
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    backgroundColor: '#121212',
+    flexGrow: 1,
+  },
+  top: {
+    flexDirection:'row',
+  height: 60,
+  justifyContent:'space-between',
+  alignItems: 'center',
+  marginTop: 20,
+  position: 'relative',
+  width: '100%',
+},
+doneWrapper: {
+  // position: 'absolute',
+  // right: 20,
+  // justifyContent: 'center',
+},
+
+donebutton: {
+  // fontWeight: '600',
+  fontSize: 18,
+  color: '#fe9f0a'
+},
+  placeholderText: {
+    color: 'white',
+    fontSize: 20,
+    // marginTop:20
+    
+  },
+  addPhotoBox: {
+    height: 200,
+    backgroundColor: '#2c2c2e',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addPhotoText: {
+    color: '#555',
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  helperText: {
+    textAlign: 'center',
+    color: '#555',
+    marginBottom: 20,
+    fontSize: 13,
+  },
+  input: {
+    // borderWidth: 0.5,
+    backgroundColor:'#2c2c2e',
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 16,
+    marginBottom: 12,
+    color:'#555'
+  },
+    input1: {
+  backgroundColor: '#2c2c2e',
+  borderColor: '#ddd',
+  borderRadius: 5,
+  paddingVertical: 24,
+  paddingHorizontal: 12, // better for left alignment
+  fontSize: 16,
+  marginBottom: 12,
+  color: '#ff9f00',
+  textAlign: 'left',
+},
+
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ff9f00',
+  },
+ mapWrapper: {
+  borderRadius: 25,
+  overflow: 'hidden',
+  marginBottom: 20,
+},
+
+map: {
+  height: 200,
+  width: '100%',
+},
+
+});

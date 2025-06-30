@@ -1,6 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Entypo, EvilIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Dimensions,
   Image,
   Linking,
   ScrollView,
@@ -9,11 +12,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+
+const { width } = Dimensions.get('window');
+const contentWidth = width * 0.93;
+
+
 
 export default function SpotDetailScreen() {
   const params = useLocalSearchParams();
-
+  const navigation=useNavigation();
+  const router=useRouter()
   // Assuming you passed a full spot object as a JSON string under `spot`
   const spot = JSON.parse(params.spot as string);
 
@@ -23,11 +33,25 @@ export default function SpotDetailScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#121212' }}>
+
+    <ScrollView
+  style={styles.scroll} // apply background color here
+  contentContainerStyle={styles.container}
+>
+<View style={styles.top}>
+  <Text style={styles.placeholderText}>Kombucha Spot</Text>
+  <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
+    <Text style={styles.donebutton}>Done</Text>
+  </TouchableOpacity>
+</View>
+
+
       {spot.photoURL ? (
         <Image source={{ uri: spot.photoURL }} style={styles.image} resizeMode="cover" />
       ) : (
         <View style={styles.placeholderImage}>
+          <EvilIcons name="image" color="white" size={49} />
           <Text style={styles.placeholderText}>No Photo Available</Text>
         </View>
       )}
@@ -52,84 +76,124 @@ export default function SpotDetailScreen() {
         </Text>
       </View>
 
-      <MapView
-        style={styles.map}
-        region={{
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-      >
-        <Marker coordinate={{ latitude: spot.latitude, longitude: spot.longitude }} title={spot.name} />
-      </MapView>
 
       <TouchableOpacity style={styles.directionsButton} onPress={openInMaps}>
+        <Entypo name="direction" color="white" size={24} />
         <Text style={styles.directionsText}>Get Directions</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 40,
-    backgroundColor: '#fff',
-  },
+  scroll: {
+  flex: 1,
+  backgroundColor: '#121212',
+},
+container: {
+  paddingBottom: 40,
+  paddingTop: 0,
+  alignItems: 'center',
+},
   image: {
-    width: '100%',
-    height: 250,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-  },
-  placeholderImage: {
-    height: 250,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#eee',
-  },
+  width: contentWidth,
+  height: 250,
+  borderBottomLeftRadius: 15,
+  borderBottomRightRadius: 15,
+  backgroundColor: '#2c2c2e',
+},
+placeholderImage: {
+  width: contentWidth,
+  height: 200,
+  marginTop: 20,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: '#2c2c2e',
+  borderRadius: 15,
+},
   placeholderText: {
-    color: '#888',
-    fontSize: 16,
+    color: 'white',
+    fontSize: 20,
+    marginTop:10
+    
   },
-  detailsContainer: {
-    padding: 16,
-  },
+detailsContainer: {
+  backgroundColor: '#2c2c2e',
+  marginTop: 16,
+  borderRadius: 12,
+  padding: 16,
+  width: contentWidth,
+},
+directionsButton: {
+  flexDirection: 'row',
+  backgroundColor: '#fe9f0a',
+  padding: 16,
+  margin: 16,
+  borderRadius: 12,
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: contentWidth,
+},
+
+top: {
+  height: 60,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginTop: 20,
+  position: 'relative',
+  width: '100%',
+},
+
+headerTitle: {
+  color: 'white',
+  fontSize: 20,
+  fontWeight: '800',
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  textAlign: 'center',
+},
+
+doneWrapper: {
+  position: 'absolute',
+  right: 20,
+  justifyContent: 'center',
+},
+
+donebutton: {
+  fontWeight: '600',
+  fontSize: 16,
+  color: '#fe9f0a',
+},
   label: {
     fontSize: 12,
     color: '#999',
     marginTop: 12,
   },
   value: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginTop: 4,
   },
   comment: {
     marginTop: 8,
     fontSize: 16,
-    backgroundColor: '#f2f2f2',
-    padding: 12,
+    backgroundColor: '#2c2c2e',
+    color: '#ddd',
+    // padding: 12,
     borderRadius: 10,
   },
   coordinates: {
     fontSize: 12,
-    color: '#999',
-  },
-  map: {
-    width: '100%',
-    height: 200,
-    marginTop: 20,
-  },
-  directionsButton: {
-    backgroundColor: 'rgb(255,191,0)',
-    padding: 16,
-    margin: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    color: '#aaa',
+    marginTop: 4,
   },
   directionsText: {
-    color: '#fff',
+    color:'white',
     fontSize: 16,
     fontWeight: '600',
   },
 });
+
