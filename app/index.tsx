@@ -26,12 +26,13 @@ const SplashScreen = () => {
   }
 
   return (
-    <LinearGradient
-      colors={['rgb(255,191,0)', 'rgb(255,191,0)']}
-      start={[0, 0]}
-      end={[1, 1]}
-      style={styles.container}
-    >
+<LinearGradient
+  colors={['#fe9f0a', '#fe9f0a']}
+  start={[0, 0]}
+  end={[1, 1]}
+  style={styles.container}
+>
+
       <View style={styles.content}>
         {/* <Ionicons name="wine" size={80} color="white" style={styles.shadow} /> */}
         <Text style={styles.title}>KombuMap</Text>

@@ -1,20 +1,20 @@
+import { EvilIcons, Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Button,
   Keyboard,
   Linking,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  useColorScheme,
+  View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { supabase } from '../../lib/supabase';
-
 interface Spot {
   id: string | number;
   latitude: number;
@@ -34,10 +34,22 @@ export default function ContentView() {
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   });
+
   const [spots, setSpots] = useState<Spot[]>([]);
   const [searchText, setSearchText] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
-
+   const colorScheme = useColorScheme(); 
+  // ⚡ dynamic colors
+  const isDark = colorScheme === 'dark';
+  const headerBg = isDark ? '#222' : '#c4c4c4';
+  const headerText = isDark ? '#fff' : '#000';
+  const searchBg = isDark ? '#333' : '#c4c4c4';
+  const searchTextColor = isDark ? '#fff' : '#000';
+  const clusterBg = isDark ? '#444' : '#fe9f0a';
+  const clusterText = isDark ? '#fff' : '#000';
+  const fabBg = isDark ? '#888' : '#fe9f0a';
+  const fabText = isDark ? '#000' : '#fff';
   const getLocationAsync = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -66,7 +78,7 @@ export default function ContentView() {
       if (error) throw error;
       setSpots(data);
     } catch (error) {
-      console.error(`Failed to load spots:`, error);
+      console.error('Failed to load spots:', error);
     }
   };
 
@@ -75,117 +87,96 @@ export default function ContentView() {
     fetchSpots();
   }, []);
 
-  const [isSearching, setIsSearching] = useState(false);
+  const searchLocation = async () => {
+    if (isSearching) return;
+    setIsSearching(true);
+    setTimeout(() => setIsSearching(false), 1000);
 
-// const searchLocation = async () => {
-//   // if (isSearching) return; // prevent rapid double calls
-//   setIsSearching(true);
-//   // setTimeout(() => setIsSearching(false), 1000);
-
-//   if (!searchText) return;
-//   try {
-//     const geoResp = await Location.geocodeAsync(searchText);
-//     if (geoResp.length > 0) {
-//       const location = geoResp[0];
-//       setRegion({
-//         latitude: location.latitude,
-//         longitude: location.longitude,
-//         latitudeDelta: 6,
-//         longitudeDelta: 6,
-//       });
-//     }
-//   } catch (error) {
-//     console.error('Search failed:', error);
-//   }
-// };
-
- const searchLocation = async () => {
     if (!searchText) return;
+
     try {
       const geoResp = await Location.geocodeAsync(searchText);
       if (geoResp.length > 0) {
         const location = geoResp[0];
         setRegion({
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  latitudeDelta: 6,  // big zoom out so you see all spots
-  longitudeDelta: 6,
-});
-
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 6,
+          longitudeDelta: 6,
+        });
       }
     } catch (error) {
-  // setErrorMessage(`Search failed: ${(error as Error).message}`);
-}
- }
-  // ============ Clustering logic ============
-  const calculateClusters = (spots: Spot[], region: Region): Cluster[] => {
-  const clusters: Cluster[] = [];
-  const clustered = new Set<number>();
-
-  // Adjust clustering dynamically based on zoom level
-  let clusterRadiusKm = 2;
-  if (region.latitudeDelta > 0.5) clusterRadiusKm = 15;
-  if (region.latitudeDelta > 2) clusterRadiusKm = 30;
-  if (region.latitudeDelta > 5) clusterRadiusKm = 80;
-  if (region.latitudeDelta > 10) clusterRadiusKm = 200;
-
-  const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+      console.error('Search failed:', error);
+    }
   };
 
-  for (let i = 0; i < spots.length; i++) {
-    if (clustered.has(i)) continue;
+  const calculateClusters = (spots: Spot[], region: Region): Cluster[] => {
+    const clusters: Cluster[] = [];
+    const clustered = new Set<number>();
+    let clusterRadiusKm = 2;
+    if (region.latitudeDelta > 0.5) clusterRadiusKm = 15;
+    if (region.latitudeDelta > 2) clusterRadiusKm = 30;
+    if (region.latitudeDelta > 5) clusterRadiusKm = 80;
+    if (region.latitudeDelta > 10) clusterRadiusKm = 200;
 
-    const cluster: Cluster = {
-      spots: [spots[i]],
-      center: { latitude: spots[i].latitude, longitude: spots[i].longitude },
+    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
     };
-    clustered.add(i);
 
-    for (let j = i + 1; j < spots.length; j++) {
-      if (clustered.has(j)) continue;
-      const dist = haversine(
-        spots[i].latitude,
-        spots[i].longitude,
-        spots[j].latitude,
-        spots[j].longitude
-      );
-      if (dist < clusterRadiusKm) {
-        cluster.spots.push(spots[j]);
-        clustered.add(j);
-      }
-    }
+    for (let i = 0; i < spots.length; i++) {
+      if (clustered.has(i)) continue;
 
-    if (cluster.spots.length > 1) {
-      const latSum = cluster.spots.reduce((sum, s) => sum + s.latitude, 0);
-      const lonSum = cluster.spots.reduce((sum, s) => sum + s.longitude, 0);
-      cluster.center = {
-        latitude: latSum / cluster.spots.length,
-        longitude: lonSum / cluster.spots.length,
+      const cluster: Cluster = {
+        spots: [spots[i]],
+        center: { latitude: spots[i].latitude, longitude: spots[i].longitude },
       };
+      clustered.add(i);
+
+      for (let j = i + 1; j < spots.length; j++) {
+        if (clustered.has(j)) continue;
+        const dist = haversine(
+          spots[i].latitude,
+          spots[i].longitude,
+          spots[j].latitude,
+          spots[j].longitude
+        );
+        if (dist < clusterRadiusKm) {
+          cluster.spots.push(spots[j]);
+          clustered.add(j);
+        }
+      }
+
+      if (cluster.spots.length > 1) {
+        const latSum = cluster.spots.reduce((sum, s) => sum + s.latitude, 0);
+        const lonSum = cluster.spots.reduce((sum, s) => sum + s.longitude, 0);
+        cluster.center = {
+          latitude: latSum / cluster.spots.length,
+          longitude: lonSum / cluster.spots.length,
+        };
+      }
+
+      clusters.push(cluster);
     }
 
-    clusters.push(cluster);
-  }
+    return clusters;
+  };
 
-  return clusters;
-};
-
-
-  return (
-    <View style={styles.container}>
+  return  (
+    <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
       <MapView
         style={styles.map}
         region={region}
         showsUserLocation
         onRegionChangeComplete={setRegion}
+        mapType="standard"
       >
         {calculateClusters(spots, region).flatMap((cluster, idx) => {
           if (cluster.spots.length <= 3) {
@@ -211,12 +202,8 @@ export default function ContentView() {
                   Alert.alert('Cluster', `${cluster.spots.length} spots here. Zoom in.`)
                 }
               >
-                <View style={styles.clusterMarker}>
-                  {/* <Image
-                    source={require('../../assets/1024.png')}
-                    style={styles.clusterImage}
-                  /> */}
-                  <Text style={styles.clusterText}>{cluster.spots.length}+</Text>
+                <View style={[styles.clusterMarker, { backgroundColor: clusterBg }]}>
+                  <Text style={[styles.clusterText, { color: clusterText }]}>{cluster.spots.length}+</Text>
                 </View>
               </Marker>
             );
@@ -224,48 +211,100 @@ export default function ContentView() {
         })}
       </MapView>
 
-      <View style={styles.searchContainer}>
+      <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: isDark ? '#c4c4c4' : '#444' }]}>
+        <Text style={[styles.headerTitle, { color: headerText }]}>Kombu Map</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => console.log('Send')}>
+            <Feather name="send" size={20} color={"#ff9f00"} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={fetchSpots} style={{ marginLeft: 15 }}>
+            <Feather name="rotate-ccw" size={20} color={"#ff9f00"} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[styles.searchContainer, { backgroundColor: searchBg }]}>
+        <EvilIcons name="search" color={searchTextColor} size={24} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: searchTextColor }]}
           placeholder="Search location..."
+          placeholderTextColor={searchTextColor}
           value={searchText}
           onChangeText={setSearchText}
           onSubmitEditing={() => {
-  Keyboard.dismiss();
-  searchLocation();
-}}
-
+            Keyboard.dismiss();
+            searchLocation();
+          }}
         />
-        <Button title="Search" onPress={searchLocation} />
       </View>
 
+      {/* Floating Add Button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: fabBg }]}
         onPress={() => router.push('/home/addspot')}
       >
-        <Text style={styles.fabIcon}>+</Text>
+        <Text style={[styles.fabIcon, { color: fabText }]}>+</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  searchContainer: {
+  container: {
+    flex: 1
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+header: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  height: 80,
+  // backgroundColor: '#c4c4c4',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingTop: 40,
+  paddingHorizontal: 20,
+  zIndex: 10,
+  borderBottomWidth: 0.5,
+  borderBottomColor: '#444',
+},
+headerTitle: {
+  fontSize: 24,
+  fontWeight: '600',
+  // color: 'white',
+},
+
+  headerIcons: {
     position: 'absolute',
-    top: 50,
-    left: 10,
-    right: 10,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+     paddingTop: 40,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    elevation: 5,
   },
-  searchInput: { flex: 1, padding: 8 },
+searchContainer: {
+  position: 'absolute',
+  top: 90,
+  left: 10,
+  right: 10,
+  // backgroundColor: '#c4c4c4',
+  borderRadius: 16,
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  flexDirection: 'row',
+  alignItems: 'center',
+  zIndex: 9,
+  color:'black'
+},
+searchInput: {
+  flex: 1,
+  padding: 8,
+  // color: 'black',
+  fontSize: 16,
+},
+
   fab: {
     position: 'absolute',
     right: 20,
@@ -275,23 +314,24 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    // backgroundColor: '#fe9f0a',
     elevation: 5,
-      backgroundColor: 'rgb(255,191,0)',
   },
-  fabIcon: { color: 'white', fontSize: 30 },
- clusterMarker: {
-  backgroundColor: 'rgb(255,191,0)',
-  borderRadius: 20,
-  width: 40,
-  height: 40,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-  clusterText: { color: 'black', fontWeight: 'bold' },
-  clusterImage: {
+  fabIcon: {
+    // color: 'white',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  clusterMarker: {
+    // backgroundColor: '#fe9f0a',
+    borderRadius: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clusterText: {
+    // color: 'black',
+    fontWeight: 'bold',
   },
 });

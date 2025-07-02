@@ -37,7 +37,7 @@ useEffect(() => {
  
   return (
     <LinearGradient
-      colors={['rgb(255, 87, 51)', 'rgb(255,87,51)']}
+      colors={['#fe9f0a', '#fe9f0a']}
       start={[0, 0]}
       end={[1, 1]}
       style={styles.container}
