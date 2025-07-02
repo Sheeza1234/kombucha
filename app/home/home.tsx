@@ -10,11 +10,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { supabase } from '../../lib/supabase';
-
 interface Spot {
   id: string | number;
   latitude: number;
@@ -39,7 +39,17 @@ export default function ContentView() {
   const [searchText, setSearchText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
-
+   const colorScheme = useColorScheme(); 
+  // ⚡ dynamic colors
+  const isDark = colorScheme === 'dark';
+  const headerBg = isDark ? '#222' : '#c4c4c4';
+  const headerText = isDark ? '#fff' : '#000';
+  const searchBg = isDark ? '#333' : '#c4c4c4';
+  const searchTextColor = isDark ? '#fff' : '#000';
+  const clusterBg = isDark ? '#444' : '#fe9f0a';
+  const clusterText = isDark ? '#fff' : '#000';
+  const fabBg = isDark ? '#888' : '#fe9f0a';
+  const fabText = isDark ? '#000' : '#fff';
   const getLocationAsync = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -159,8 +169,8 @@ export default function ContentView() {
     return clusters;
   };
 
-  return (
-    <View style={styles.container}>
+  return  (
+    <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
       <MapView
         style={styles.map}
         region={region}
@@ -192,8 +202,8 @@ export default function ContentView() {
                   Alert.alert('Cluster', `${cluster.spots.length} spots here. Zoom in.`)
                 }
               >
-                <View style={styles.clusterMarker}>
-                  <Text style={styles.clusterText}>{cluster.spots.length}+</Text>
+                <View style={[styles.clusterMarker, { backgroundColor: clusterBg }]}>
+                  <Text style={[styles.clusterText, { color: clusterText }]}>{cluster.spots.length}+</Text>
                 </View>
               </Marker>
             );
@@ -201,27 +211,24 @@ export default function ContentView() {
         })}
       </MapView>
 
-      {/* Custom Header */}
-      <View style={styles.header}>
-        
-        <Text style={styles.headerTitle}>Kombu Map</Text>
+      <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: isDark ? '#c4c4c4' : '#444' }]}>
+        <Text style={[styles.headerTitle, { color: headerText }]}>Kombu Map</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity onPress={() => console.log('Send')}>
-            <Feather name="send" size={20} color="#fe9f0a" />
+            <Feather name="send" size={20} color={"#ff9f00"} />
           </TouchableOpacity>
           <TouchableOpacity onPress={fetchSpots} style={{ marginLeft: 15 }}>
-            <Feather name="rotate-ccw" size={20} color='#fe9f0a' />
+            <Feather name="rotate-ccw" size={20} color={"#ff9f00"} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-         <EvilIcons name="search" color="white" size={24} />
+      <View style={[styles.searchContainer, { backgroundColor: searchBg }]}>
+        <EvilIcons name="search" color={searchTextColor} size={24} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: searchTextColor }]}
           placeholder="Search location..."
-          placeholderTextColor="white"
+          placeholderTextColor={searchTextColor}
           value={searchText}
           onChangeText={setSearchText}
           onSubmitEditing={() => {
@@ -233,18 +240,17 @@ export default function ContentView() {
 
       {/* Floating Add Button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: fabBg }]}
         onPress={() => router.push('/home/addspot')}
       >
-        <Text style={styles.fabIcon}>+</Text>
+        <Text style={[styles.fabIcon, { color: fabText }]}>+</Text>
       </TouchableOpacity>
     </View>
   );
 }
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#000',
+    flex: 1
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -255,7 +261,7 @@ header: {
   left: 0,
   right: 0,
   height: 80,
-  backgroundColor: '#c4c4c4',
+  // backgroundColor: '#c4c4c4',
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
@@ -268,7 +274,7 @@ header: {
 headerTitle: {
   fontSize: 24,
   fontWeight: '600',
-  color: 'white',
+  // color: 'white',
 },
 
   headerIcons: {
@@ -283,7 +289,7 @@ searchContainer: {
   top: 90,
   left: 10,
   right: 10,
-  backgroundColor: '#c4c4c4',
+  // backgroundColor: '#c4c4c4',
   borderRadius: 16,
   paddingHorizontal: 12,
   paddingVertical: 8,
@@ -308,16 +314,16 @@ searchInput: {
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fe9f0a',
+    // backgroundColor: '#fe9f0a',
     elevation: 5,
   },
   fabIcon: {
-    color: 'white',
+    // color: 'white',
     fontSize: 30,
     fontWeight: 'bold',
   },
   clusterMarker: {
-    backgroundColor: '#fe9f0a',
+    // backgroundColor: '#fe9f0a',
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -325,7 +331,7 @@ searchInput: {
     alignItems: 'center',
   },
   clusterText: {
-    color: 'black',
+    // color: 'black',
     fontWeight: 'bold',
   },
 });

@@ -5,13 +5,35 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import {
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleProp,
+  Text,
+  TextInput,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+  useColorScheme,
+} from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
 import uuid from 'react-native-uuid';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../context/Authcontext';
 
-
+type Theme = {
+  background: string;
+  card: string;
+  text: string;
+  subText: string;
+  inputText: string;
+  accent: string;
+  border: string;
+  placeholder: string;
+};
 
 export default function AddSpotScreen() {
   const navigation = useNavigation();
@@ -19,15 +41,32 @@ export default function AddSpotScreen() {
   const [comment, setComment] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [address, setAddress] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
-  const [region, setRegion] = useState({
+
+  const [region, setRegion] = useState<Region>({
     latitude: 46.603354,
     longitude: 1.888334,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
-  const [isSaving, setIsSaving] = useState(false);
-const [address, setAddress] = useState(''); // <-- stores real address
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const theme: Theme = {
+    background: isDark ? '#121212' : '#f9f9f9',
+    card: isDark ? '#2c2c2e' : '#ffffff',
+    text: isDark ? '#ffffff' : '#121212',
+    subText: isDark ? '#aaa' : '#555',
+    inputText: isDark ? '#ddd' : '#333',
+    accent: '#fe9f0a',
+    border: isDark ? '#333' : '#ddd',
+    placeholder: isDark ? '#888' : '#999',
+  };
+
+  const { user } = useAuth();
 
 useEffect(() => {
   (async () => {
@@ -59,7 +98,11 @@ const country = components.find((c) => c.types.includes("country"))?.long_name;
 const fullAddress = res.data.results[0]?.formatted_address;
 setAddress(fullAddress || ''); // fallback to empty if not found
 
+      const allowedCountries = ['France', 'Germany', 'Canada'];
 
+      // if (!allowedCountries.includes(country)) {
+      //   Alert.alert('Invalid Location', 'Spots can only be added in France, Germany, or Canada for now.');
+      // }
     } catch (e) {
       console.warn('Geocoding failed:', e);
       Alert.alert('Error', 'Unable to determine your country. Please check your internet or location settings.');
@@ -68,12 +111,30 @@ setAddress(fullAddress || ''); // fallback to empty if not found
 }, []);
 
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images });
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    }
-  };
+ const pickImage = async () => {
+  console.log("pickImage called 🚀");
+
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permission Required', 'We need access to your media to pick an image.');
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    quality: 0.8,
+  });
+
+  console.log("Picker result:", result);
+
+  if (!result.canceled) {
+    setImageUri(result.assets[0].uri);
+  }
+};
+
+
+
 const isValidName = (input: string) => {
   const bannedWords = ['poop', 'test', '123', 'yo'];
   const pattern = /^[A-Za-zÀ-ÿ\s'-]{3,}$/;
@@ -95,9 +156,6 @@ const fetchAddressFromCoords = async (latitude: number, longitude: number) => {
     setAddress('Unknown Address');
   }
 };
-
-
-const { user } = useAuth();
 
   const uploadImage = async (uri: string) => {
     const response = await fetch(uri);
@@ -180,178 +238,187 @@ const saveSpot = async () => {
 
 
 
+
   return (
-<ScrollView contentContainerStyle={styles.container}>
-  <View style={styles.top}>
-     <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
-      <Text style={styles.donebutton}>Cancel</Text>
-    </TouchableOpacity>
-    <Text style={styles.placeholderText}>Add New Spot</Text>
-    <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
-      <Text style={styles.donebutton}>Save</Text>
-    </TouchableOpacity>
-  </View>
-  <TouchableOpacity onPress={pickImage} style={styles.addPhotoBox}>
-    {imageUri ? (
-      <Image source={{ uri: imageUri }} style={{ height: 200, width: '100%', borderRadius: 12 }} />
-    ) : (
-      <>
-       <MaterialIcons name="add-photo-alternate" color='#fe9f0a' size={44} />
-        <Text style={styles.addPhotoText}>Add Photo</Text>
-      </>
-    )}
-  </TouchableOpacity>
+    <ScrollView contentContainerStyle={styles.container(theme)}>
+      <View style={styles.top}>
+        <TouchableOpacity onPress={() => router.replace('/home/home')} style={styles.doneWrapper}>
+          <Text style={styles.donebutton(theme)}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={styles.placeholderText(theme)}>Add New Spot</Text>
+        <TouchableOpacity onPress={saveSpot} style={styles.doneWrapper}>
+          <Text style={styles.donebutton(theme)}>Save</Text>
+        </TouchableOpacity>
+      </View>
 
-  <Text style={styles.helperText}>📸 Tap to add a photo of the kombucha spot</Text>
+      <TouchableOpacity onPress={pickImage} style={styles.addPhotoBox(theme)}>
+        {imageUri ? (
+          <Image source={{ uri: imageUri }} style={{ height: 200, width: '100%', borderRadius: 12 }} />
+        ) : (
+          <>
+            <MaterialIcons name="add-photo-alternate" color={theme.accent} size={44} />
+            <Text style={styles.addPhotoText(theme)}>Add Photo</Text>
+          </>
+        )}
+      </TouchableOpacity>
 
-  <TextInput placeholder="Store Name" value={name} onChangeText={setName} style={styles.input} />
-  <TextInput placeholder="Comment (Optional)" value={comment} onChangeText={setComment} style={styles.input1} />
+      <Text style={styles.helperText(theme)}>📸 Tap to add a photo of the kombucha spot</Text>
 
-  <View style={styles.sectionTitleRow}>
-    <Text style={styles.sectionTitle}>Location</Text>
-    <TouchableOpacity onPress={() => {
-      if (location) {
-        setRegion({
-          ...region,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
-        fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
-      }
-    }}>
-      <Text style={styles.sectionLink}>Use Current Location</Text>
-    </TouchableOpacity>
-  </View>
-  <Text style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>
-    Tap on the map to select a location
-  </Text>
+      <TextInput
+        placeholder="Store Name"
+        placeholderTextColor={theme.placeholder}
+        value={name}
+        onChangeText={setName}
+        style={styles.input(theme)}
+      />
 
-<View style={styles.mapWrapper}>
-  <MapView
-    region={region}
-    onPress={(e) => {
-      const { latitude, longitude } = e.nativeEvent.coordinate;
-      setRegion((prev) => ({ ...prev, latitude, longitude }));
-      fetchAddressFromCoords(latitude, longitude);
-    }}
-    style={styles.map}
-  >
-    <Marker
-      coordinate={{ latitude: region.latitude, longitude: region.longitude }}
-      draggable
-      onDragEnd={(e) => {
-        const { latitude, longitude } = e.nativeEvent.coordinate;
-        setRegion((prev) => ({ ...prev, latitude, longitude }));
-        fetchAddressFromCoords(latitude, longitude);
-      }}
-      image={require('../../assets/image.png')}
-    />
-  </MapView>
-</View>
+      <TextInput
+        placeholder="Comment (Optional)"
+        placeholderTextColor={theme.placeholder}
+        value={comment}
+        onChangeText={setComment}
+        style={styles.input1(theme)}
+      />
 
-</ScrollView>
+      <View style={styles.sectionTitleRow}>
+        <Text style={styles.sectionTitle(theme)}>Location</Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (location) {
+              setRegion({
+                ...region,
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              });
+              fetchAddressFromCoords(location.coords.latitude, location.coords.longitude);
+            }
+          }}
+        >
+          <Text style={styles.sectionLink(theme)}>Use Current Location</Text>
+        </TouchableOpacity>
+      </View>
 
+      <Text style={{ fontSize: 13, color: theme.subText, marginBottom: 10 }}>
+        Tap on the map to select a location
+      </Text>
+
+      <View style={styles.mapWrapper}>
+        <MapView
+          region={region}
+          onPress={(e) => {
+            const { latitude, longitude } = e.nativeEvent.coordinate;
+            setRegion((prev) => ({ ...prev, latitude, longitude }));
+            fetchAddressFromCoords(latitude, longitude);
+          }}
+          style={styles.map}
+        >
+          <Marker
+            coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+            draggable
+            onDragEnd={(e) => {
+              const { latitude, longitude } = e.nativeEvent.coordinate;
+              setRegion((prev) => ({ ...prev, latitude, longitude }));
+              fetchAddressFromCoords(latitude, longitude);
+            }}
+            image={require('../../assets/image.png')}
+          />
+        </MapView>
+      </View>
+    </ScrollView>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    backgroundColor: '#121212',
-    flexGrow: 1,
-  },
-  top: {
-    flexDirection:'row',
-  height: 60,
-  justifyContent:'space-between',
-  alignItems: 'center',
-  marginTop: 20,
-  position: 'relative',
-  width: '100%',
-},
-doneWrapper: {
-  // position: 'absolute',
-  // right: 20,
-  // justifyContent: 'center',
-},
 
-donebutton: {
-  // fontWeight: '600',
-  fontSize: 18,
-  color: '#fe9f0a'
-},
-  placeholderText: {
-    color: 'white',
+// Styles — all theme-safe, typed properly
+const styles = {
+  container: (theme: Theme): StyleProp<ViewStyle> => ({
+    padding: 16,
+    backgroundColor: theme.background,
+    flexGrow: 1,
+  }),
+  top: {
+    flexDirection: 'row',
+    height: 60,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    width: '100%',
+  } as ViewStyle,
+  doneWrapper: {
+    padding: 4,
+  } as ViewStyle,
+  donebutton: (theme: Theme): StyleProp<TextStyle> => ({
+    fontSize: 18,
+    color: theme.accent,
+  }),
+  placeholderText: (theme: Theme): StyleProp<TextStyle> => ({
+    color: theme.text,
     fontSize: 20,
-    // marginTop:20
-    
-  },
-  addPhotoBox: {
+  }),
+  addPhotoBox: (theme: Theme): StyleProp<ViewStyle> => ({
     height: 200,
-    backgroundColor: '#2c2c2e',
+    backgroundColor: theme.card,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  addPhotoText: {
-    color: '#555',
+  }),
+  addPhotoText: (theme: Theme): StyleProp<TextStyle> => ({
+    color: theme.subText,
     fontSize: 20,
     fontWeight: '600',
     marginTop: 8,
-  },
-  helperText: {
+  }),
+  helperText: (theme: Theme): StyleProp<TextStyle> => ({
     textAlign: 'center',
-    color: '#555',
+    color: theme.subText,
     marginBottom: 20,
     fontSize: 13,
-  },
-  input: {
-    // borderWidth: 0.5,
-    backgroundColor:'#2c2c2e',
-    borderColor: '#ddd',
+  }),
+  input: (theme: Theme): StyleProp<TextStyle> => ({
+    backgroundColor: theme.card,
+    borderColor: theme.border,
+    borderWidth: 1,
     borderRadius: 10,
     padding: 14,
     fontSize: 16,
     marginBottom: 12,
-    color:'#555'
-  },
-    input1: {
-  backgroundColor: '#2c2c2e',
-  borderColor: '#ddd',
-  borderRadius: 5,
-  paddingVertical: 24,
-  paddingHorizontal: 12, // better for left alignment
-  fontSize: 16,
-  marginBottom: 12,
-  color: '#ff9f00',
-  textAlign: 'left',
-},
-
+    color: theme.inputText,
+  }),
+  input1: (theme: Theme): StyleProp<TextStyle> => ({
+    backgroundColor: theme.card,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 12,
+    color: theme.inputText,
+    textAlign: 'left',
+  }),
   sectionTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
     marginBottom: 6,
-  },
-  sectionTitle: {
+  } as ViewStyle,
+  sectionTitle: (theme: Theme): StyleProp<TextStyle> => ({
     fontSize: 18,
     fontWeight: '600',
-    color: 'white',
-  },
-  sectionLink: {
+    color: theme.text,
+  }),
+  sectionLink: (theme: Theme): StyleProp<TextStyle> => ({
     fontSize: 14,
     fontWeight: '600',
-    color: '#ff9f00',
-  },
- mapWrapper: {
-  borderRadius: 25,
-  overflow: 'hidden',
-  marginBottom: 20,
-},
-
-map: {
-  height: 200,
-  width: '100%',
-},
-
-});
+    color: theme.accent,
+  }),
+  mapWrapper: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginBottom: 20,
+  } as ViewStyle,
+  map: {
+    height: 200,
+    width: '100%',
+  } as ViewStyle,
+};
