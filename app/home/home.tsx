@@ -1,41 +1,49 @@
-import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  Keyboard,
   Linking,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { supabase } from '../../lib/supabase';
 
+interface Spot {
+  id: string | number;
+  latitude: number;
+  longitude: number;
+  [key: string]: any;
+}
+
+interface Cluster {
+  spots: Spot[];
+  center: { latitude: number; longitude: number };
+}
 
 export default function ContentView() {
-  const [region, setRegion] = useState({
-  latitude: 0,
-  longitude: 0,
-  latitudeDelta: 0.02,
-  longitudeDelta: 0.02,
-});
-
+  const [region, setRegion] = useState<Region>({
+    latitude: 0,
+    longitude: 0,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  });
   const [spots, setSpots] = useState<Spot[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const navigation = useNavigation();
-  const router=useRouter();
+  const router = useRouter();
 
   const getLocationAsync = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert(
         'Location Access',
-        'Please enable location access in Settings to see your current position and find nearby kombucha spots.',
+        'Please enable location access in Settings to see your current position.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Settings', onPress: () => Linking.openSettings() },
@@ -43,7 +51,6 @@ export default function ContentView() {
       );
       return;
     }
-
     const location = await Location.getCurrentPositionAsync({});
     setRegion({
       latitude: location.coords.latitude,
@@ -59,50 +66,40 @@ export default function ContentView() {
       if (error) throw error;
       setSpots(data);
     } catch (error) {
-      setErrorMessage(`Failed to load spots: ${error}`);
+      console.error(`Failed to load spots:`, error);
     }
   };
-function clusterSpots(spots: Spot[], zoomLevel: number): Spot[] {
-  if (zoomLevel <= 0.5) return spots; // don't cluster
 
-  const grouped: Spot[] = [];
-  const seen: { [key: string]: Spot } = {};
+  useEffect(() => {
+    getLocationAsync();
+    fetchSpots();
+  }, []);
 
-  const RADIUS_KM = 5;
+  const [isSearching, setIsSearching] = useState(false);
 
-  function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const toRad = (x: number) => (x * Math.PI) / 180;
-    const R = 6371; // Earth radius in km
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  }
+// const searchLocation = async () => {
+//   // if (isSearching) return; // prevent rapid double calls
+//   setIsSearching(true);
+//   // setTimeout(() => setIsSearching(false), 1000);
 
-  for (let spot of spots) {
-    let clustered = false;
-    for (let key in seen) {
-      const other = seen[key];
-      if (
-        haversine(spot.latitude, spot.longitude, other.latitude, other.longitude) <= RADIUS_KM
-      ) {
-        clustered = true;
-        break;
-      }
-    }
-    if (!clustered) {
-      const key = `${spot.latitude.toFixed(2)}-${spot.longitude.toFixed(2)}`;
-      seen[key] = spot;
-      grouped.push(spot);
-    }
-  }
+//   if (!searchText) return;
+//   try {
+//     const geoResp = await Location.geocodeAsync(searchText);
+//     if (geoResp.length > 0) {
+//       const location = geoResp[0];
+//       setRegion({
+//         latitude: location.latitude,
+//         longitude: location.longitude,
+//         latitudeDelta: 6,
+//         longitudeDelta: 6,
+//       });
+//     }
+//   } catch (error) {
+//     console.error('Search failed:', error);
+//   }
+// };
 
-  return grouped;
-}
-
-  const searchLocation = async () => {
+ const searchLocation = async () => {
     if (!searchText) return;
     try {
       const geoResp = await Location.geocodeAsync(searchText);
@@ -119,50 +116,113 @@ function clusterSpots(spots: Spot[], zoomLevel: number): Spot[] {
     } catch (error) {
   // setErrorMessage(`Search failed: ${(error as Error).message}`);
 }
+ }
+  // ============ Clustering logic ============
+  const calculateClusters = (spots: Spot[], region: Region): Cluster[] => {
+  const clusters: Cluster[] = [];
+  const clustered = new Set<number>();
 
+  // Adjust clustering dynamically based on zoom level
+  let clusterRadiusKm = 2;
+  if (region.latitudeDelta > 0.5) clusterRadiusKm = 15;
+  if (region.latitudeDelta > 2) clusterRadiusKm = 30;
+  if (region.latitudeDelta > 5) clusterRadiusKm = 80;
+  if (region.latitudeDelta > 10) clusterRadiusKm = 200;
 
+  const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
-interface Spot {
-  id: string | number;
-  latitude: number;
-  longitude: number;
-  [key: string]: any; // optional: allows other unknown fields without error
-}
 
-  useEffect(() => {
-    getLocationAsync();
-    fetchSpots();
-  }, []);
+  for (let i = 0; i < spots.length; i++) {
+    if (clustered.has(i)) continue;
+
+    const cluster: Cluster = {
+      spots: [spots[i]],
+      center: { latitude: spots[i].latitude, longitude: spots[i].longitude },
+    };
+    clustered.add(i);
+
+    for (let j = i + 1; j < spots.length; j++) {
+      if (clustered.has(j)) continue;
+      const dist = haversine(
+        spots[i].latitude,
+        spots[i].longitude,
+        spots[j].latitude,
+        spots[j].longitude
+      );
+      if (dist < clusterRadiusKm) {
+        cluster.spots.push(spots[j]);
+        clustered.add(j);
+      }
+    }
+
+    if (cluster.spots.length > 1) {
+      const latSum = cluster.spots.reduce((sum, s) => sum + s.latitude, 0);
+      const lonSum = cluster.spots.reduce((sum, s) => sum + s.longitude, 0);
+      cluster.center = {
+        latitude: latSum / cluster.spots.length,
+        longitude: lonSum / cluster.spots.length,
+      };
+    }
+
+    clusters.push(cluster);
+  }
+
+  return clusters;
+};
+
 
   return (
     <View style={styles.container}>
-      {region && (
-        <MapView
-  style={styles.map}
-  region={region}
-  showsUserLocation
-  onRegionChangeComplete={(newRegion) => {
-    setRegion(newRegion); // update region so we know zoom level
-  }}
->
-{clusterSpots(spots, region.latitudeDelta).map((spot, index) => (
-  <Marker
-    key={spot.id ?? index}
-    coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-    onPress={() =>
-      router.push({
-        pathname: '/home/spotdetail',
-        params: { spot: JSON.stringify(spot) },
-      })
-    }
-    image={require('../../assets/image.png')}
-  />
-))}
-
-
-
-        </MapView>
-      )}
+      <MapView
+        style={styles.map}
+        region={region}
+        showsUserLocation
+        onRegionChangeComplete={setRegion}
+      >
+        {calculateClusters(spots, region).flatMap((cluster, idx) => {
+          if (cluster.spots.length <= 3) {
+            return cluster.spots.map((spot, i) => (
+              <Marker
+                key={`${idx}-${i}`}
+                coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
+                onPress={() =>
+                  router.push({
+                    pathname: '/home/spotdetail',
+                    params: { spot: JSON.stringify(spot) },
+                  })
+                }
+                image={require('../../assets/image.png')}
+              />
+            ));
+          } else {
+            return (
+              <Marker
+                key={`cluster-${idx}`}
+                coordinate={cluster.center}
+                onPress={() =>
+                  Alert.alert('Cluster', `${cluster.spots.length} spots here. Zoom in.`)
+                }
+              >
+                <View style={styles.clusterMarker}>
+                  {/* <Image
+                    source={require('../../assets/1024.png')}
+                    style={styles.clusterImage}
+                  /> */}
+                  <Text style={styles.clusterText}>{cluster.spots.length}+</Text>
+                </View>
+              </Marker>
+            );
+          }
+        })}
+      </MapView>
 
       <View style={styles.searchContainer}>
         <TextInput
@@ -170,7 +230,11 @@ interface Spot {
           placeholder="Search location..."
           value={searchText}
           onChangeText={setSearchText}
-          onSubmitEditing={searchLocation}
+          onSubmitEditing={() => {
+  Keyboard.dismiss();
+  searchLocation();
+}}
+
         />
         <Button title="Search" onPress={searchLocation} />
       </View>
@@ -186,12 +250,8 @@ interface Spot {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  map: { flex: 1 },
   searchContainer: {
     position: 'absolute',
     top: 50,
@@ -205,24 +265,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 5,
   },
-  searchInput: {
-    flex: 1,
-    padding: 8,
-  },
+  searchInput: { flex: 1, padding: 8 },
   fab: {
     position: 'absolute',
     right: 20,
     bottom: 30,
-    backgroundColor:' rgb(255,191,0)',
     width: 60,
     height: 60,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
+      backgroundColor: 'rgb(255,191,0)',
   },
-  fabIcon: {
-    color: 'white',
-    fontSize: 30,
+  fabIcon: { color: 'white', fontSize: 30 },
+ clusterMarker: {
+  backgroundColor: 'rgb(255,191,0)',
+  borderRadius: 20,
+  width: 40,
+  height: 40,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+  clusterText: { color: 'black', fontWeight: 'bold' },
+  clusterImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 });
