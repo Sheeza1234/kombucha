@@ -42,9 +42,9 @@ export default function ContentView() {
    const colorScheme = useColorScheme(); 
   // ⚡ dynamic colors
   const isDark = colorScheme === 'dark';
-  const headerBg = isDark ? '#222' : '#c4c4c4';
+  const headerBg = isDark ? '#222' : '#FFFFFF';
   const headerText = isDark ? '#fff' : '#000';
-  const searchBg = isDark ? '#333' : '#c4c4c4';
+  const searchBg = isDark ? '#333' : '#DADADA';
   const searchTextColor = isDark ? '#fff' : '#000';
   const clusterBg = isDark ? '#444' : '#fe9f0a';
   const clusterText = isDark ? '#fff' : '#000';
@@ -101,8 +101,8 @@ export default function ContentView() {
         setRegion({
           latitude: location.latitude,
           longitude: location.longitude,
-          latitudeDelta: 6,
-          longitudeDelta: 6,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
         });
       }
     } catch (error) {
